@@ -1,0 +1,23 @@
+name: mariana_feign_compiler
+
+description: mariana:feign_compiler
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.16.1 <3.0.0"
+
+dependencies:
+  source_gen: 1.2.1
+  built_collection: 5.1.1
+  code_builder: 4.1.0
+  tuple: 2.0.0
+  analyzer: 3.2.0
+  dart_style: 2.2.1
+  build: 2.2.1
+  mariana_feign:
+    git:
+      url: https://github.com/jalen-mar/mariana_feign.git
+      ref: release

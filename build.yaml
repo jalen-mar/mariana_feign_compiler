@@ -1,0 +1,9 @@
+builders:
+  starter:
+    target: ":feign"
+    import: "package:mariana_feign_compiler/MarianaFeignCompilerBuilder.dart"
+    builder_factories: ["starterBuilder"]
+    build_extensions: { ".dart": [".feign.g.part"] }
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"]
