@@ -1,5 +1,5 @@
 builders:
-  starter:
+  feign:
     target: ":feign"
     import: "package:mariana_feign_compiler/MarianaFeignCompilerBuilder.dart"
     builder_factories: ["starterBuilder"]
