@@ -133,9 +133,11 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
     return null;
   }
 
-  ConstantReader? _getFormUrlEncodedAnnotation(MethodElement method) {
-    final annotation = _typeChecker(methodAnnotation.FormUrlEncoded)
-        .firstAnnotationOf(method, throwOnUnresolved: false);
+  ConstantReader? _getContentTypeAnnotation(MethodElement method) {
+    var annotation = _typeChecker(methodAnnotation.FormUrlEncoded).firstAnnotationOf(method, throwOnUnresolved: false);
+    if (annotation == null) {
+      annotation = _typeChecker(methodAnnotation.JsonEncoded).firstAnnotationOf(method, throwOnUnresolved: false);
+    }
     if (annotation != null) return ConstantReader(annotation);
     return null;
   }
@@ -277,7 +279,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
       extraOptions[_contentType] = contentTypeInHeader;
     }
 
-    final contentType = _getFormUrlEncodedAnnotation(m);
+    final contentType = _getContentTypeAnnotation(m);
     if (contentType != null) {
       extraOptions[_contentType] =
           literal(contentType.peek("mime")?.stringValue);
