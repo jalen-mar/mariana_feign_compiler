@@ -1178,16 +1178,27 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
 
   void _generatePreparedNotify(List<Code> blocks, MethodElement m) {
     final prepared = _getAnnotations(m, methodAnnotation.Cancel);
-    if (prepared.length != 1) {
-      blocks.add(const Code("GetIt.I.get<Function>(instanceName: \"preparedCallback\").call();"));
+    String? callbackName = null;
+    switch (prepared.length) {
+      case 0: {
+        blocks.add(const Code('GetIt.I.get<Function>(instanceName: \"preparedCallback\").call();'));
+      }
+      break;
+      case 1: {
+        blocks.add(Code('''
+          if (${prepared.keys.first.displayName} == null) {
+            GetIt.I.get<Function>(instanceName: \"preparedCallback\").call();
+          }
+        '''));
+      }
+      break;
     }
   }
 
   void _generateDataNotify(List<Code> blocks, MethodElement m, String result) {
     final prepared = _getAnnotations(m, methodAnnotation.Callback);
     if (prepared.length == 1) {
-      var parameter = prepared.keys.first.displayName;
-      blocks.add(Code("GetIt.I.get<Function>(instanceName: \"dataCallback\").call($parameter, $result);"));
+      blocks.add(Code("GetIt.I.get<Function>(instanceName: \"dataCallback\").call(${prepared.keys.first.displayName}, $result);"));
     }
   }
 
@@ -1195,7 +1206,13 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
     final prepared = _getAnnotations(m, methodAnnotation.Cancel);
     if (prepared.length == 1) {
       var parameter = prepared.keys.first.displayName;
-      blocks.add(refer(parameter).property("call").call([]).statement);
+      blocks.add(Code('''
+        if ($parameter == null) {
+          GetIt.I.get<Function>(instanceName: \"finishCallback\").call();
+        } else {
+          $parameter.call();
+        }
+      '''));
     } else {
       blocks.add(const Code("GetIt.I.get<Function>(instanceName: \"finishCallback\").call();"));
     }
@@ -1205,7 +1222,13 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
     final prepared = _getAnnotations(m, methodAnnotation.Cancel);
     if (prepared.length == 1) {
       var parameter = prepared.keys.first.displayName;
-      return "$parameter.call();";
+      return '''
+        if ($parameter == null) {
+          GetIt.I.get<Function>(instanceName: \"finishCallback\").call();
+        } else {
+          $parameter.call();
+        }
+      ''';
     } else {
       return "GetIt.I.get<Function>(instanceName: \"finishCallback\").call();";
     }
