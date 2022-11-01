@@ -26,7 +26,9 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
   static const _queryParamsVar = "queryParameters";
   static const _dataVar = "data";
   static const _localDataVar = "_data";
-  static const _dioVar = "getDio()";
+  static const _dioVar = "getDio(null)";
+  static const _dioLeftVar = "getDio(";
+  static const _dioRightVar = ")";
   static const _extraVar = 'extra';
   static const _localExtraVar = '_extra';
   static const _contentType = 'contentType';
@@ -87,7 +89,11 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
   Method _buildDioGetterMethod() => Method((m) {
     m..returns = refer("Dio")
       ..name = "getDio"
-      ..body = const Code("return GetIt.I.get<Dio>();");
+      ..requiredParameters = ListBuilder([Parameter((p){
+        p..name = 'instanceName'
+          ..type = refer('String?');
+      })])
+      ..body = const Code("return GetIt.I.get<Dio>(instanceName: instanceName);");
   });
 
   Method _buildBaseUrlGetterMethod(String? url) => Method((m) {
@@ -251,11 +257,20 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
     return literal(definePath);
   }
 
+  String? _generateHttpClient(List<Code> blocks, MethodElement m) {
+    final prepared = _getAnnotations(m, methodAnnotation.Client);
+    if (prepared.length == 1) {
+      return _dioLeftVar + prepared.keys.first.displayName + _dioRightVar;
+    }
+    return null;
+  }
+
   Code _generateRequest(MethodElement m, ConstantReader httpMethod) {
     final returnAsyncWrapper = m.returnType.isDartAsyncFuture ? 'return' : 'yield';
     final path = _generatePath(m, httpMethod);
     final blocks = <Code>[];
-
+    String clientName = _generateHttpClient(blocks, m) ?? _dioVar;
+    
     _generatePreparedNotify(blocks, m);
     _generateExtra(m, blocks, _localExtraVar);
 
@@ -318,12 +333,12 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
 
     final wrapperedReturnType = _getResponseType(m.returnType);
 
-    final options = _parseOptions(m, namedArguments, blocks, extraOptions);
+    final options = _parseOptions(clientName, m, namedArguments, blocks, extraOptions);
 
     if (wrapperedReturnType == null ||
         "void" == wrapperedReturnType.toString()) {
       blocks.add(
-        refer("await $_dioVar.fetch")
+        refer("await $clientName.fetch")
             .call([options], {}, [refer("void")])
             .statement,
       );
@@ -340,7 +355,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
     if (returnType == null || "void" == returnType.toString()) {
       if (isWrappered) {
         blocks.add(
-          refer("final $_resultVar = await $_dioVar.fetch")
+          refer("final $_resultVar = await $clientName.fetch")
               .call([options], {}, [refer("void")])
               .statement,
         );
@@ -350,7 +365,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
       """));
       } else {
         blocks.add(
-          refer("await $_dioVar.fetch")
+          refer("await $clientName.fetch")
               .call([options], {}, [refer("void")])
               .statement,
         );
@@ -362,7 +377,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
           _typeChecker(BuiltList).isExactlyType(returnType)) {
         if (_isBasicType(innerReturnType)) {
           blocks.add(
-            refer("await $_dioVar.fetch<List<dynamic>>")
+            refer("await $clientName.fetch<List<dynamic>>")
                 .call([options])
                 .property("catchError")
                 .call([
@@ -379,7 +394,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
               "final value = $_resultVar.data!.cast<${_displayString(innerReturnType)}>();"));
         } else {
           blocks.add(
-            refer("await $_dioVar.fetch<List<dynamic>>")
+            refer("await $clientName.fetch<List<dynamic>>")
                 .call([options])
                 .property("catchError")
                 .call([
@@ -413,7 +428,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
           _typeChecker(BuiltMap).isExactlyType(returnType)) {
         final types = _getResponseInnerTypes(returnType)!;
         blocks.add(
-          refer("await $_dioVar.fetch<Map<String,dynamic>>")
+          refer("await $clientName.fetch<Map<String,dynamic>>")
               .call([options])
               .property("catchError")
               .call([
@@ -509,7 +524,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
       } else {
         if (_isBasicType(returnType)) {
           blocks.add(
-            refer("await $_dioVar.fetch<${_displayString(returnType)}>")
+            refer("await $clientName.fetch<${_displayString(returnType)}>")
                 .call([options])
                 .property("catchError")
                 .call([
@@ -525,7 +540,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
           blocks.add(Code("final value = $_resultVar.data!;"));
         } else if (returnType.toString() == 'dynamic') {
           blocks.add(
-            refer("await $_dioVar.fetch")
+            refer("await $clientName.fetch")
                 .call([options])
                 .property("catchError")
                 .call([
@@ -541,7 +556,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
           blocks.add(Code("final value = $_resultVar.data!;"));
         } else {
           blocks.add(
-            refer("await $_dioVar.fetch<Map<String,dynamic>>")
+            refer("await $clientName.fetch<Map<String,dynamic>>")
                 .call([options])
                 .property("catchError")
                 .call([
@@ -694,6 +709,7 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
   }
 
   Expression _parseOptions(
+      String clientName,
       MethodElement m,
       Map<String, Expression> namedArguments,
       List<Code> blocks,
@@ -723,12 +739,12 @@ class FeignClientGenerator extends GeneratorForAnnotation<FeignClient> {
             .newInstance([], args)
             .property('compose')
             .call(
-          [refer(_dioVar).property('options'), path], composeArguments,
+          [refer(clientName).property('options'), path], composeArguments,
         )
             .property('copyWith')
             .call([], {
           _baseUrlVar: baseUrl.ifNullThen(
-              refer(_dioVar).property('options').property('baseUrl'))
+              refer(clientName).property('options').property('baseUrl'))
         })
       ], {}, [
         type
